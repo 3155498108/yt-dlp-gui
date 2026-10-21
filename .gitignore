@@ -133,3 +133,6 @@ bin/
 
 config.toml
 debug.log
+
+# local build artifacts
+yt-dlp-gui-win64-fixed.zip
