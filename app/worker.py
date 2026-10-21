@@ -48,6 +48,8 @@ class DownloadWorker(QtCore.QThread):
     def run(self):
         create_window = sp.CREATE_NO_WINDOW if sys.platform == "win32" else 0
         output = ""
+        title = ""
+        error = ""
         logger.info(f"Download ({self.id}) starting with cmd: {self.command}")
 
         self.progress.emit(self.item, [(TreeColumn.STATUS, "Processing")])
@@ -71,9 +73,13 @@ class DownloadWorker(QtCore.QThread):
 
                 line = line.strip()
                 if "__SEP__" in line:
-                    status, total_bytes, percent, speed, eta, title = [
-                        i.strip() for i in line.split("__SEP__")
-                    ]
+                    fields = [i.strip() for i in line.split("__SEP__")]
+                    if len(fields) != 6:
+                        logger.debug(
+                            f"Download ({self.id}) ignoring malformed progress line: {line}"
+                        )
+                        continue
+                    status, total_bytes, percent, speed, eta, title = fields
                     self.progress.emit(
                         self.item,
                         [
@@ -87,12 +93,21 @@ class DownloadWorker(QtCore.QThread):
                     )
                 elif line.startswith(("[Merger]", "[ExtractAudio]")):
                     self.progress.emit(self.item, [(TreeColumn.STATUS, "Converting")])
+                elif line.startswith("ERROR:"):
+                    error = line
+                    logger.error(f"Download ({self.id}) {line}")
                 elif line.startswith("WARNING:"):
                     logger.warning(f"Download ({self.id}) {line}")
 
         if p.returncode != 0:
             logger.error(f"Download ({self.id}) returncode: {p.returncode}\n{output}")
-            self.progress.emit(self.item, [(TreeColumn.STATUS, "ERROR")])
+            updates = [(TreeColumn.STATUS, "ERROR")]
+            # Show the reason of the failure, otherwise the only information
+            # available is the log file.
+            message = error or title
+            if message:
+                updates.append((TreeColumn.TITLE, message[:120]))
+            self.progress.emit(self.item, updates)
         else:
             logger.info(f"Download ({self.id}) finished.")
             self.progress.emit(

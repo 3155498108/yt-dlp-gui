@@ -75,8 +75,19 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.statusBar.showMessage(status, 10000)
 
     def on_dep_finished(self):
+        failed = self.dep_worker.failed
         self.dep_worker.deleteLater()
         self.pb_download.setEnabled(True)
+
+        if failed:
+            logger.error(f"Failed to download dependencies: {', '.join(failed)}")
+            QtWidgets.QMessageBox.warning(
+                self,
+                "Application Message",
+                "The following dependencies could not be downloaded:\n\n"
+                + "\n".join(failed)
+                + "\n\nDownloads may fail until they are available.",
+            )
 
     def open_folder(self, path):
         QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(path))
@@ -228,7 +239,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
             QtWidgets.QApplication.exit()
 
         update_ytdlp = self.config["general"].get("update_ytdlp")
-        self.config["general"]["update_ytdlp"] = update_ytdlp if update_ytdlp else True
+        # `False` is a valid value, so it has to be checked explicitly.
+        self.config["general"]["update_ytdlp"] = (
+            True if update_ytdlp is None else update_ytdlp
+        )
         self.dd_preset.addItems(self.config["presets"].keys())
         self.dd_preset.setCurrentIndex(self.config["general"]["current_preset"])
         self.le_path.setText(self.config["general"]["path"])
