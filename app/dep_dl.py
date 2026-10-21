@@ -160,14 +160,19 @@ class DepWorker(QThread):
                         updated = True
                         self.progress.emit("Updating yt-dlp...")
 
-                returncode = p.returncode
+            # The return code is only available after the process ended.
+            returncode = p.returncode
         except OSError as e:
             logger.error(f"yt-dlp update failed: {e}")
             output = str(e)
 
-        if returncode == 0 and updated:
-            self.progress.emit("yt-dlp updated")
-            logger.info(f"yt-dlp updated\n{output}")
+        if returncode == 0:
+            if updated:
+                self.progress.emit("yt-dlp updated")
+                logger.info(f"yt-dlp updated\n{output}")
+            else:
+                self.progress.emit("yt-dlp is up to date")
+                logger.info(f"yt-dlp is up to date\n{output}")
             return
 
         logger.error(f"yt-dlp update failed returncode: {returncode}\n{output}")
